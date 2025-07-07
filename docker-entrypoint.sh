@@ -1,28 +1,17 @@
 #!/bin/sh
 
-# Connection String
-# Setup GCP SQL Proxy
-MYSQL_CONN_NAME="${GOOGLE_PROJECT}:${REGION}:${DB_INSTANCE}"
+# Immediately exit if any command fails.
+set -e
 
-echo "Starting SQL proxy..."
-/cloud_sql_proxy -instances=${MYSQL_CONN_NAME}=tcp:5432 &
+# 1. Start the Cloud SQL Auth Proxy in the background.
+#    The proxy will listen for connections and forward them to your Cloud SQL instance.
+#    The "&" is crucial for running it as a background process.
+echo "INFO: Starting Cloud SQL Auth Proxy..."
+/usr/local/bin/cloud_sql_proxy -instances=${DB_INSTANCE_CONNECTION_NAME}=tcp:5432 &
 
-echo "Waiting for proxy to start..."
-sleep 20
-
-echo "Starting n8n"
-if [ -d /root/.n8n ] ; then
-  chmod o+rx /root
-  chown -R node /root/.n8n
-  ln -s /root/.n8n /home/node/
-fi
-
-chown -R node /home/node
-
-if [ "$#" -gt 0 ]; then
-  # Got started with arguments
-  exec su-exec node "$@"
-else
-  # Got started without arguments
-  exec su-exec node n8n
-fi
+# 2. Execute the main n8n process.
+#    We use 'exec' to replace this script with the n8n process. This is critical
+#    for Cloud Run to properly manage the container lifecycle and signals.
+#    n8n will automatically listen on the $PORT environment variable set by Cloud Run.
+echo "INFO: Starting n8n..."
+exec n8n
