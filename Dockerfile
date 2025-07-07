@@ -1,16 +1,19 @@
+# The base n8n image
 FROM n8nio/n8n
 
-ENV REGION=us-central1
+# Temporarily switch to the root user to install the proxy
+USER root
 
-# Download proxy
-RUN wget "https://storage.googleapis.com/cloudsql-proxy/v1.21.0/cloud_sql_proxy.linux.amd64" -O /cloud_sql_proxy
-RUN chmod +x /cloud_sql_proxy
+# Download the Cloud SQL Proxy and make it executable
+RUN wget https://storage.googleapis.com/cloudsql-proxy/v1.28.0/cloud_sql_proxy.linux.amd64 -O /usr/local/bin/cloud_sql_proxy && \
+    chmod +x /usr/local/bin/cloud_sql_proxy
 
-COPY nodes/** /home/node/.n8n/custom/
-
-COPY docker-entrypoint.sh /docker-entrypoint.sh
+# Copy the startup script
+COPY ./docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
-ENTRYPOINT ["tini", "--", "/docker-entrypoint.sh"]
+# Switch back to the non-root user for security
+USER node
 
-EXPOSE 5678/tcp
+# Set the new entrypoint
+ENTRYPOINT ["/docker-entrypoint.sh"]
